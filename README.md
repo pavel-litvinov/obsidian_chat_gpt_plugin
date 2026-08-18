@@ -4,7 +4,7 @@
 
 Vault Toolkit Bridge is a desktop Obsidian plugin that exposes the current vault to local AI clients through the Model Context Protocol (MCP). It uses the standard Obsidian plugin API for note content, active-note state, metadata, tags, frontmatter, and atomic writes.
 
-The server listens on `127.0.0.1` only. It does not send vault data to an external service, collect telemetry, or require an Obsidian account. Obsidian 1.13.0 or newer is required for the current release.
+The server listens on `127.0.0.1` only. It does not send vault data to an external service, collect telemetry, or require an Obsidian account. Obsidian 1.4.4 or newer is required.
 
 ## MCP tools
 
