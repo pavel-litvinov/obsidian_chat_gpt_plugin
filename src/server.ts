@@ -27,6 +27,7 @@ export class VaultMcpServer {
 	constructor(
 		private readonly app: App,
 		private readonly api: VaultToolkitApi,
+		private readonly version: string,
 	) {}
 
 	get isRunning(): boolean {
@@ -131,7 +132,7 @@ export class VaultMcpServer {
 			case 'initialize':
 				return this.rpcResult(request.id, {
 					protocolVersion: MCP_PROTOCOL_VERSION,
-					serverInfo: { name: 'vault-toolkit-bridge', version: '0.2.0' },
+					serverInfo: { name: 'vault-toolkit-bridge', version: this.version },
 					capabilities: { tools: {} },
 				});
 			case 'notifications/initialized':
