@@ -191,6 +191,10 @@ export default class VaultToolkitBridgePlugin extends Plugin {
 	private async loadSettings(): Promise<void> {
 		const saved = (await this.loadData()) as Partial<VaultToolkitSettings> | null;
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved ?? {});
+		if (this.settings.bearerToken.trim().length === 0) {
+			this.settings.bearerToken = generateBearerToken();
+			await this.saveSettings();
+		}
 	}
 
 	private async startServer(showNotice = true): Promise<void> {
@@ -201,6 +205,11 @@ export default class VaultToolkitBridgePlugin extends Plugin {
 			);
 		}
 	}
+}
+
+function generateBearerToken(): string {
+	const bytes = crypto.getRandomValues(new Uint8Array(32));
+	return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function parseFrontmatterValue(rawValue: string): unknown {

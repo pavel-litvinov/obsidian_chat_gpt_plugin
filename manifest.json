@@ -1,9 +1,9 @@
 {
   "id": "vault-toolkit",
   "name": "Vault Toolkit Bridge",
-  "version": "0.2.1",
-  "minAppVersion": "1.4.4",
-  "description": "Let ChatGPT and Codex work with this vault through a local MCP connection.",
+  "version": "0.2.2",
+  "minAppVersion": "1.13.0",
+  "description": "Connect local AI clients to your vault through MCP for note search, metadata, frontmatter, and atomic updates.",
   "author": "Pavel Litvinov",
   "authorUrl": "https://github.com/pavel-litvinov",
   "isDesktopOnly": true
