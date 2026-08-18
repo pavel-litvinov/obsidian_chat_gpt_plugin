@@ -1,6 +1,6 @@
 {
   "name": "obsidian-vault-toolkit",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Expose an Obsidian vault to local AI clients through MCP.",
   "main": "main.js",
   "type": "module",

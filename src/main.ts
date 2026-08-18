@@ -30,7 +30,7 @@ export default class VaultToolkitBridgePlugin extends Plugin {
 	async onload(): Promise<void> {
 		await this.loadSettings();
 		this.api = new VaultToolkitApi(this.app);
-		this.mcpServer = new VaultMcpServer(this.app, this.api);
+		this.mcpServer = new VaultMcpServer(this.app, this.api, this.manifest.version);
 		this.addSettingTab(new VaultToolkitSettingTab(this.app, this));
 		this.registerCommands();
 
@@ -75,23 +75,6 @@ export default class VaultToolkitBridgePlugin extends Plugin {
 			id: 'restart-mcp-server',
 			name: 'Restart server',
 			callback: () => this.run(() => this.restartServer()),
-		});
-
-		this.addCommand({
-			id: 'copy-mcp-endpoint',
-			name: 'Copy server endpoint',
-			checkCallback: (checking) => {
-				const port = this.mcpServer.actualPort;
-				if (port === null) {
-					return false;
-				}
-				if (!checking) {
-					void navigator.clipboard
-						.writeText(`http://127.0.0.1:${port}/mcp`)
-						.then(() => new Notice('Server endpoint copied.'));
-				}
-				return true;
-			},
 		});
 
 		this.addCommand({

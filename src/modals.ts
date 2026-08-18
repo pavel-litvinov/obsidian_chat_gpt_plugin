@@ -119,15 +119,6 @@ export class TextViewerModal extends Modal {
 		});
 		textArea.value = this.text;
 		textArea.readOnly = true;
-
-		new Setting(this.contentEl).addButton((button) =>
-			button.setButtonText('Copy').onClick(() => {
-				void navigator.clipboard.writeText(this.text).then(
-					() => new Notice('Copied to clipboard.'),
-					() => new Notice('Could not copy to clipboard.'),
-				);
-			}),
-		);
 	}
 
 	onClose(): void {

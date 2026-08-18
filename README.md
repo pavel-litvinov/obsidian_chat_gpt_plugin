@@ -1,5 +1,7 @@
 # Vault Toolkit Bridge
 
+## Description
+
 Vault Toolkit Bridge is a desktop Obsidian plugin that exposes the current vault to local AI clients through the Model Context Protocol (MCP). It uses the standard Obsidian plugin API for note content, active-note state, metadata, tags, frontmatter, and atomic writes.
 
 The server listens on `127.0.0.1` only. It does not send vault data to an external service, collect telemetry, or require an Obsidian account.
@@ -18,7 +20,7 @@ The server listens on `127.0.0.1` only. It does not send vault data to an extern
 - `patch_note` — replace one exact, unique text fragment.
 - `update_frontmatter` — set or remove a frontmatter property atomically.
 
-The Obsidian command palette also includes controls for starting, stopping, and restarting the MCP server, copying its endpoint, and using the note operations manually.
+The Obsidian command palette also includes controls for starting, stopping, and restarting the MCP server and using the note operations manually.
 
 ## Multiple vaults
 
@@ -31,7 +33,7 @@ Enable the plugin in every vault that an AI client should access. Each open vaul
 ### GitHub release
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the latest GitHub release.
-2. Create `<Vault>/.obsidian/plugins/vault-toolkit-bridge/`.
+2. Create `<Vault>/.obsidian/plugins/vault-toolkit/`.
 3. Copy the three files into that directory.
 4. Reload Obsidian, then enable **Vault Toolkit Bridge** in **Settings → Community plugins**.
 
@@ -53,7 +55,7 @@ The plugin serves JSON-RPC MCP requests at:
 http://127.0.0.1:8766/mcp
 ```
 
-Use **Vault Toolkit Bridge: Copy MCP endpoint** to copy the actual URL when several vaults are open.
+Open **Settings → Vault Toolkit Bridge** to see the actual endpoint when several vaults are open.
 
 If a bearer token is configured, send it as:
 
@@ -79,5 +81,12 @@ The production build writes `main.js` at the repository root. A release tag must
 - Desktop only: the plugin uses Node's local HTTP server.
 - The server binds only to `127.0.0.1`.
 - Optional bearer-token authentication is available in settings.
+- The plugin does not read from or write to the system clipboard.
 - No network requests, analytics, telemetry, ads, or paid services are included.
 - Write tools modify vault files and should be used with normal backups or version control.
+
+## Vault access and privacy
+
+The `search_notes`, `list_notes`, and vault metadata tools enumerate Markdown file paths in the vault where the plugin is enabled. This is required to search notes and summarize tags and folders. The plugin does not enumerate files outside that vault and does not transmit the resulting paths or note content beyond its localhost-only MCP server.
+
+Individual note content is read or changed only when a corresponding MCP tool or Obsidian command is invoked. Enable the plugin only in vaults that you intend to make available to a local AI client.
