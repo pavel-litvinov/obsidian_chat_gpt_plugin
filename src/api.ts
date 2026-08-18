@@ -1,6 +1,7 @@
 import {
 	App,
 	CachedMetadata,
+	EventRef,
 	getAllTags,
 	normalizePath,
 	TAbstractFile,
@@ -32,6 +33,14 @@ export interface VaultMetadata {
 	generatedAt: string;
 }
 
+export interface SearchNotesOptions {
+	query?: string;
+	tag?: string;
+	tags?: string[];
+	frontmatter?: Record<string, unknown>;
+	limit?: number;
+}
+
 export type NoteUpdater =
 	| string
 	| ((currentContent: string) => string);
@@ -54,6 +63,11 @@ export class VaultToolkitApi {
 				assertFrontmatter(frontmatter);
 				Object.assign(frontmatter, options.frontmatter);
 			});
+			await this.waitForFrontmatter(file, (frontmatter) =>
+				Object.entries(options.frontmatter ?? {}).every(([key, expected]) =>
+					valuesEqual(frontmatter[key], expected),
+				),
+			);
 		}
 
 		return file;
@@ -65,8 +79,8 @@ export class VaultToolkitApi {
 
 	async readActiveNote(): Promise<{ file: TFile; content: string }> {
 		const file = this.app.workspace.getActiveFile();
-		if (file === null) {
-			throw new Error('No active note.');
+		if (file === null || file.extension !== 'md') {
+			throw new Error('No active Markdown note.');
 		}
 
 		return {
@@ -83,16 +97,49 @@ export class VaultToolkitApi {
 		return file;
 	}
 
-	searchNotes(query: string): TFile[] {
-		const normalizedQuery = query.trim().toLocaleLowerCase();
+	searchNotes(search: SearchNotesOptions | string): TFile[] {
+		const options = typeof search === 'string' ? { query: search } : search;
+		const normalizedQuery = options.query?.trim().toLocaleLowerCase() ?? '';
+		const requestedTags = [
+			...(options.tag === undefined ? [] : [options.tag]),
+			...(options.tags ?? []),
+		].map((tag) => stripHash(tag).toLocaleLowerCase());
+		const limit = Math.max(1, Math.min(options.limit ?? 50, 1000));
+
 		return this.app.vault
 			.getMarkdownFiles()
-			.filter(
-				(file) =>
-					normalizedQuery.length === 0 ||
-					file.path.toLocaleLowerCase().includes(normalizedQuery),
-			)
-			.sort((left, right) => left.path.localeCompare(right.path));
+			.filter((file) => {
+				if (
+					normalizedQuery.length > 0 &&
+					!file.path.toLocaleLowerCase().includes(normalizedQuery)
+				) {
+					return false;
+				}
+
+				const metadata = this.getNoteMetadata(file);
+				if (
+					requestedTags.length > 0 &&
+					!metadata.tags.some((tag) =>
+						requestedTags.includes(tag.toLocaleLowerCase()),
+					)
+				) {
+					return false;
+				}
+
+				return Object.entries(options.frontmatter ?? {}).every(
+					([key, expected]) => valuesEqual(metadata.frontmatter[key], expected),
+				);
+			})
+			.sort((left, right) => left.path.localeCompare(right.path))
+			.slice(0, limit);
+	}
+
+	listNotes(limit = 200): string[] {
+		return this.app.vault
+			.getMarkdownFiles()
+			.sort((left, right) => left.path.localeCompare(right.path))
+			.slice(0, Math.max(1, Math.min(limit, 1000)))
+			.map((file) => file.path);
 	}
 
 	getNoteMetadata(fileOrPath: TFile | string): NoteMetadata {
@@ -157,12 +204,16 @@ export class VaultToolkitApi {
 			throw new Error('Frontmatter key cannot be empty.');
 		}
 
+		const file = this.requireMarkdownFile(path);
 		await this.app.fileManager.processFrontMatter(
-			this.requireMarkdownFile(path),
+			file,
 			(frontmatter: unknown) => {
 				assertFrontmatter(frontmatter);
 				frontmatter[normalizedKey] = value;
 			},
+		);
+		await this.waitForFrontmatter(file, (frontmatter) =>
+			valuesEqual(frontmatter[normalizedKey], value),
 		);
 	}
 
@@ -172,13 +223,46 @@ export class VaultToolkitApi {
 			throw new Error('Frontmatter key cannot be empty.');
 		}
 
+		const file = this.requireMarkdownFile(path);
 		await this.app.fileManager.processFrontMatter(
-			this.requireMarkdownFile(path),
+			file,
 			(frontmatter: unknown) => {
 				assertFrontmatter(frontmatter);
 				delete frontmatter[normalizedKey];
 			},
 		);
+		await this.waitForFrontmatter(
+			file,
+			(frontmatter) => !Object.prototype.hasOwnProperty.call(frontmatter, normalizedKey),
+		);
+	}
+
+	private async waitForFrontmatter(
+		file: TFile,
+		predicate: (frontmatter: Record<string, unknown>) => boolean,
+	): Promise<void> {
+		if (predicate(readFrontmatter(this.app.metadataCache.getFileCache(file)))) {
+			return;
+		}
+
+		await new Promise<void>((resolve) => {
+			let eventRef: EventRef | null = null;
+			const finish = (): void => {
+				if (eventRef !== null) {
+					this.app.metadataCache.offref(eventRef);
+					eventRef = null;
+				}
+				window.clearTimeout(timeout);
+				resolve();
+			};
+			const timeout = window.setTimeout(finish, 2000);
+
+			eventRef = this.app.metadataCache.on('changed', (changedFile, _data, cache) => {
+				if (changedFile.path === file.path && predicate(readFrontmatter(cache))) {
+					finish();
+				}
+			});
+		});
 	}
 
 	private requireMarkdownFile(path: string): TFile {
@@ -246,6 +330,16 @@ function readFrontmatter(cache: CachedMetadata | null): Record<string, unknown> 
 
 function stripHash(tag: string): string {
 	return tag.startsWith('#') ? tag.slice(1) : tag;
+}
+
+function valuesEqual(actual: unknown, expected: unknown): boolean {
+	if (
+		(typeof actual === 'string' || typeof actual === 'number') &&
+		(typeof expected === 'string' || typeof expected === 'number')
+	) {
+		return String(actual).toLocaleLowerCase() === String(expected).toLocaleLowerCase();
+	}
+	return JSON.stringify(actual) === JSON.stringify(expected);
 }
 
 function assertFrontmatter(

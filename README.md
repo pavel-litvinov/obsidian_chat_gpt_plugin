@@ -1,22 +1,69 @@
-# Vault Toolkit for Obsidian
+# Vault Toolkit Bridge
 
-Локальний Obsidian-плагін на TypeScript для базових операцій із нотатками та metadata. Плагін не використовує мережу й працює через стандартний Obsidian API.
+Vault Toolkit Bridge is a desktop Obsidian plugin that exposes the current vault to local AI clients through the Model Context Protocol (MCP). It uses the standard Obsidian plugin API for note content, active-note state, metadata, tags, frontmatter, and atomic writes.
 
-## MVP-команди
+The server listens on `127.0.0.1` only. It does not send vault data to an external service, collect telemetry, or require an Obsidian account.
 
-Відкрийте **Command palette** (`Cmd/Ctrl+P`) і знайдіть:
+## MCP tools
 
-- **Vault Toolkit: Create note** — створює Markdown-нотатки, вкладені папки й необов'язкові теги.
-- **Vault Toolkit: Search notes** — fuzzy-пошук за назвою або шляхом.
-- **Vault Toolkit: Show active note contents** — читає active note; результат можна скопіювати.
-- **Vault Toolkit: Append text to active note** — дописує Markdown у поточну нотатку.
-- **Vault Toolkit: Inspect active note metadata** — показує шлях, timestamps, tags і frontmatter.
-- **Vault Toolkit: Update active note frontmatter** — додає, змінює або видаляє властивість.
-- **Vault Toolkit: Show vault metadata summary** — рахує нотатки, папки та використання тегів.
+- `read_note` — read a note and its metadata.
+- `read_active_note` — read the note active in this Obsidian window.
+- `search_notes` — filter by path/title, tag, multiple tags, and frontmatter.
+- `list_notes` — list Markdown notes in the vault.
+- `get_note_metadata` — return timestamps, tags, and frontmatter.
+- `get_vault_metadata` — summarize notes, folders, and tag usage.
+- `create_note` — create a note, parent folders, and optional frontmatter.
+- `update_note` — replace an entire note atomically.
+- `append_to_note` — append Markdown content.
+- `patch_note` — replace one exact, unique text fragment.
+- `update_frontmatter` — set or remove a frontmatter property atomically.
 
-## Розробка
+The Obsidian command palette also includes controls for starting, stopping, and restarting the MCP server, copying its endpoint, and using the note operations manually.
 
-Потрібен Node.js 18 або новіший.
+## Multiple vaults
+
+Enable the plugin in every vault that an AI client should access. Each open vault starts at port `8766`; if that port is occupied, it automatically tries later ports. The preferred port and scan range are configurable per vault.
+
+`GET http://127.0.0.1:<port>/health` identifies the vault name and selected port. A multi-vault MCP client can scan the configured range and route each operation to a specific vault.
+
+## Installation
+
+### GitHub release
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the latest GitHub release.
+2. Create `<Vault>/.obsidian/plugins/vault-toolkit-bridge/`.
+3. Copy the three files into that directory.
+4. Reload Obsidian, then enable **Vault Toolkit Bridge** in **Settings → Community plugins**.
+
+### BRAT
+
+Add this repository in BRAT:
+
+```text
+https://github.com/pavel-litvinov/obsidian_chat_gpt_plugin
+```
+
+Then enable **Vault Toolkit Bridge** in every vault you want to expose.
+
+## MCP connection
+
+The plugin serves JSON-RPC MCP requests at:
+
+```text
+http://127.0.0.1:8766/mcp
+```
+
+Use **Vault Toolkit Bridge: Copy MCP endpoint** to copy the actual URL when several vaults are open.
+
+If a bearer token is configured, send it as:
+
+```http
+Authorization: Bearer <token>
+```
+
+## Development
+
+Node.js 18 or newer is required.
 
 ```bash
 npm install
@@ -25,33 +72,12 @@ npm run lint
 npm run build
 ```
 
-Production build створює `main.js` у корені проєкту.
+The production build writes `main.js` at the repository root. A release tag must exactly match the version in `manifest.json`; GitHub Actions builds and attaches `main.js`, `manifest.json`, and `styles.css` to the release.
 
-## Ручне встановлення
+## Security
 
-1. Створіть каталог `<Vault>/.obsidian/plugins/vault-toolkit/`.
-2. Скопіюйте до нього `main.js`, `manifest.json` і `styles.css`.
-3. Перезапустіть Obsidian або перезавантажте community plugins.
-4. У **Settings → Community plugins** увімкніть **Vault Toolkit**.
-
-## API для інших Obsidian-плагінів
-
-Екземпляр плагіна має публічне поле `api`. Воно надає `createNote`, `readNote`, `readActiveNote`, `updateNote`, `searchNotes`, `getNoteMetadata`, `getVaultMetadata`, `findNotesByTag`, `updateFrontmatter` і `deleteFrontmatter`.
-
-```ts
-const toolkit = app.plugins.plugins['vault-toolkit'];
-const active = await toolkit.api.readActiveNote();
-await toolkit.api.updateFrontmatter(active.file.path, 'status', 'active');
-```
-
-Це локальний API між community plugins; він не відкриває HTTP endpoint.
-
-## Публікація в Obsidian Community Plugins
-
-Проєкт готовий до GitHub release через workflow `.github/workflows/release.yml`. Після публікації репозиторію:
-
-1. Створіть і push-ніть semver tag, що точно збігається з `manifest.json`, наприклад `0.1.0` без префікса `v`.
-2. Workflow збере `main.js` і створить GitHub release із `main.js`, `manifest.json` та `styles.css`.
-3. Увійдіть на `community.obsidian.md`, зв'яжіть GitHub-акаунт і подайте URL репозиторію через **Plugins → New plugin**.
-
-Plugin ID для каталогу — `vault-toolkit`. Він навмисно не містить зарезервованого слова `obsidian`.
+- Desktop only: the plugin uses Node's local HTTP server.
+- The server binds only to `127.0.0.1`.
+- Optional bearer-token authentication is available in settings.
+- No network requests, analytics, telemetry, ads, or paid services are included.
+- Write tools modify vault files and should be used with normal backups or version control.

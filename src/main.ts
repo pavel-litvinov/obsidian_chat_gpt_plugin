@@ -8,17 +8,92 @@ import {
 	NoteSearchModal,
 	TextViewerModal,
 } from './modals';
+import { VaultMcpServer } from './server';
+import {
+	DEFAULT_SETTINGS,
+	VaultToolkitSettings,
+	VaultToolkitSettingTab,
+} from './settings';
 
-export default class ObsidianVaultToolkitPlugin extends Plugin {
+export default class VaultToolkitBridgePlugin extends Plugin {
 	/** API available to other plugins through Obsidian's plugin registry. */
 	api!: VaultToolkitApi;
+	settings!: VaultToolkitSettings;
+	private mcpServer!: VaultMcpServer;
 
-	onload(): void {
+	get serverDescription(): string {
+		return this.mcpServer.isRunning && this.mcpServer.actualPort !== null
+			? `Running for “${this.app.vault.getName()}” at http://127.0.0.1:${this.mcpServer.actualPort}/mcp`
+			: 'Stopped';
+	}
+
+	async onload(): Promise<void> {
+		await this.loadSettings();
 		this.api = new VaultToolkitApi(this.app);
+		this.mcpServer = new VaultMcpServer(this.app, this.api);
+		this.addSettingTab(new VaultToolkitSettingTab(this.app, this));
 		this.registerCommands();
+
+		this.app.workspace.onLayoutReady(() => {
+			if (this.settings.autoStart) {
+				this.run(() => this.startServer(false));
+			}
+		});
+	}
+
+	onunload(): void {
+		void this.mcpServer.stop();
+	}
+
+	async saveSettings(): Promise<void> {
+		await this.saveData(this.settings);
+	}
+
+	async restartServer(): Promise<void> {
+		await this.mcpServer.stop();
+		await this.startServer();
 	}
 
 	private registerCommands(): void {
+		this.addCommand({
+			id: 'start-mcp-server',
+			name: 'Start server',
+			callback: () => this.run(() => this.startServer()),
+		});
+
+		this.addCommand({
+			id: 'stop-mcp-server',
+			name: 'Stop server',
+			callback: () =>
+				this.run(async () => {
+					await this.mcpServer.stop();
+					new Notice(`MCP server stopped for ${this.app.vault.getName()}.`);
+				}),
+		});
+
+		this.addCommand({
+			id: 'restart-mcp-server',
+			name: 'Restart server',
+			callback: () => this.run(() => this.restartServer()),
+		});
+
+		this.addCommand({
+			id: 'copy-mcp-endpoint',
+			name: 'Copy server endpoint',
+			checkCallback: (checking) => {
+				const port = this.mcpServer.actualPort;
+				if (port === null) {
+					return false;
+				}
+				if (!checking) {
+					void navigator.clipboard
+						.writeText(`http://127.0.0.1:${port}/mcp`)
+						.then(() => new Notice('Server endpoint copied.'));
+				}
+				return true;
+			},
+		});
+
 		this.addCommand({
 			id: 'create-note',
 			name: 'Create note',
@@ -128,6 +203,20 @@ export default class ObsidianVaultToolkitPlugin extends Plugin {
 
 	private run(action: () => Promise<void>): void {
 		void action().catch((error: unknown) => new Notice(errorMessage(error)));
+	}
+
+	private async loadSettings(): Promise<void> {
+		const saved = (await this.loadData()) as Partial<VaultToolkitSettings> | null;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved ?? {});
+	}
+
+	private async startServer(showNotice = true): Promise<void> {
+		const port = await this.mcpServer.start(this.settings);
+		if (showNotice) {
+			new Notice(
+				`MCP server for ${this.app.vault.getName()} is running on port ${port}.`,
+			);
+		}
 	}
 }
 
