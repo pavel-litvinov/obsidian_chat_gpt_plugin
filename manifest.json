@@ -1,10 +1,10 @@
 {
-  "id": "vault-toolkit",
-  "name": "Vault Toolkit",
-  "version": "0.1.0",
+  "id": "vault-toolkit-bridge",
+  "name": "Vault Toolkit Bridge",
+  "version": "0.2.0",
   "minAppVersion": "1.4.4",
-  "description": "Create, find, read, and update notes, tags, frontmatter, and vault metadata.",
+  "description": "Let ChatGPT and Codex work with this vault through a local MCP connection.",
   "author": "Pavel Litvinov",
   "authorUrl": "https://github.com/pavel-litvinov",
-  "isDesktopOnly": false
+  "isDesktopOnly": true
 }

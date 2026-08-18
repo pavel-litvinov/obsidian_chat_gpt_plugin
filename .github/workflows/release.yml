@@ -29,10 +29,8 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: node -e "const manifest = require('./manifest.json'); if (manifest.version !== process.env.RELEASE_TAG) { throw new Error('Tag must match manifest version'); }"
 
-      - name: Build and lint
-        run: |
-          npm run lint
-          npm run build
+      - name: Check and build
+        run: npm run check
 
       - name: Create GitHub release
         env:

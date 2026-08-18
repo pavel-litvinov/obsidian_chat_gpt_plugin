@@ -1,18 +1,20 @@
 {
   "name": "obsidian-vault-toolkit",
-  "version": "0.1.0",
-  "description": "Create, find, read, and update Obsidian notes and vault metadata.",
+  "version": "0.2.0",
+  "description": "Expose an Obsidian vault to local AI clients through MCP.",
   "main": "main.js",
   "type": "module",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "build": "npm run typecheck && node esbuild.config.mjs production"
+    "build": "npm run typecheck && node esbuild.config.mjs production",
+    "check": "npm run typecheck && npm run lint && npm run build"
   },
   "keywords": [
     "obsidian",
     "obsidian-plugin",
+    "mcp",
     "notes",
     "frontmatter"
   ],
