@@ -1,0 +1,11 @@
+.ovt-text-viewer {
+	box-sizing: border-box;
+	font-family: var(--font-monospace);
+	min-height: 20rem;
+	resize: vertical;
+	width: 100%;
+}
+
+.modal.mod-dim .ovt-text-viewer {
+	max-height: 70vh;
+}

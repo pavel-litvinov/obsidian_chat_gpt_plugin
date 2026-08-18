@@ -1,0 +1,10 @@
+{
+  "id": "vault-toolkit",
+  "name": "Vault Toolkit",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.4",
+  "description": "Create, find, read, and update notes, tags, frontmatter, and vault metadata.",
+  "author": "Pavel Litvinov",
+  "authorUrl": "https://github.com/pavel-litvinov",
+  "isDesktopOnly": false
+}

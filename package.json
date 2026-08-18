@@ -1,0 +1,37 @@
+{
+  "name": "obsidian-vault-toolkit",
+  "version": "0.1.0",
+  "description": "Create, find, read, and update Obsidian notes and vault metadata.",
+  "main": "main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "build": "npm run typecheck && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "notes",
+    "frontmatter"
+  ],
+  "author": "Pavel Litvinov",
+  "homepage": "https://github.com/pavel-litvinov/obsidian_chat_gpt_plugin#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pavel-litvinov/obsidian_chat_gpt_plugin.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "esbuild": "^0.25.5",
+    "eslint": "^9.39.4",
+    "eslint-plugin-obsidianmd": "^0.4.0",
+    "globals": "^17.6.0",
+    "jiti": "^2.6.1",
+    "obsidian": "latest",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.59.1"
+  }
+}
