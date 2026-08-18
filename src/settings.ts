@@ -1,4 +1,5 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
+import type { SettingDefinitionItem } from 'obsidian';
 import type VaultToolkitBridgePlugin from './main';
 
 export interface VaultToolkitSettings {
@@ -21,6 +22,72 @@ export class VaultToolkitSettingTab extends PluginSettingTab {
 		private readonly plugin: VaultToolkitBridgePlugin,
 	) {
 		super(app, plugin);
+	}
+
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				name: 'Auto-start server',
+				desc: 'Start the local server whenever this vault opens.',
+				control: {
+					type: 'toggle',
+					key: 'autoStart',
+					defaultValue: DEFAULT_SETTINGS.autoStart,
+				},
+			},
+			{
+				name: 'Preferred port',
+				desc: 'The server starts here and tries later ports when it is already in use.',
+				control: {
+					type: 'number',
+					key: 'preferredPort',
+					defaultValue: DEFAULT_SETTINGS.preferredPort,
+					min: 1024,
+					max: 65535,
+					step: 1,
+				},
+			},
+			{
+				name: 'Additional ports to try',
+				desc: 'Allows multiple vaults to run simultaneously without manual port assignment.',
+				control: {
+					type: 'number',
+					key: 'portScanRange',
+					defaultValue: DEFAULT_SETTINGS.portScanRange,
+					min: 0,
+					max: 100,
+					step: 1,
+				},
+			},
+			{
+				name: 'Bearer token',
+				desc: 'Required secret generated for this vault. Select and copy it into trusted client configuration; changes apply after restart.',
+				render: (setting) => {
+					setting.addText((text) => {
+						text
+							.setPlaceholder('Required')
+							.setValue(this.plugin.settings.bearerToken)
+							.onChange(async (value) => {
+								this.plugin.settings.bearerToken = value;
+								await this.plugin.saveSettings();
+							});
+						text.inputEl.type = 'password';
+					});
+				},
+			},
+			{
+				name: 'Server status',
+				desc: this.plugin.serverDescription,
+				render: (setting) => {
+					setting.addButton((button) =>
+						button.setButtonText('Restart').onClick(async () => {
+							await this.plugin.restartServer();
+							setting.setDesc(this.plugin.serverDescription);
+						}),
+					);
+				},
+			},
+		];
 	}
 
 	display(): void {
