@@ -1,4 +1,4 @@
-import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
+import * as http from 'http';
 import { App } from 'obsidian';
 import { SearchNotesOptions, VaultToolkitApi } from './api';
 import type { VaultToolkitSettings } from './settings';
@@ -20,7 +20,7 @@ interface ToolCallParams {
 }
 
 export class VaultMcpServer {
-	private server: Server | null = null;
+	private server: http.Server | null = null;
 	private token = '';
 	private port: number | null = null;
 
@@ -44,9 +44,12 @@ export class VaultMcpServer {
 		}
 
 		this.token = settings.bearerToken.trim();
+		if (this.token.length === 0) {
+			throw new Error('A bearer token is required before the MCP server can start.');
+		}
 		for (let offset = 0; offset <= settings.portScanRange; offset += 1) {
 			const candidatePort = settings.preferredPort + offset;
-			const candidate = createServer((request, response) => {
+			const candidate = http.createServer((request, response) => {
 				void this.handleHttpRequest(request, response);
 			});
 
@@ -81,8 +84,8 @@ export class VaultMcpServer {
 	}
 
 	private async handleHttpRequest(
-		request: IncomingMessage,
-		response: ServerResponse,
+		request: http.IncomingMessage,
+		response: http.ServerResponse,
 	): Promise<void> {
 		try {
 			if (request.method === 'GET' && request.url === '/health') {
@@ -94,12 +97,28 @@ export class VaultMcpServer {
 					},
 					port: this.port,
 					server: 'vault-toolkit-bridge',
+					version: this.version,
+					authentication: 'bearer',
 				});
 				return;
 			}
 
 			if (request.method !== 'POST' || request.url !== '/mcp') {
 				this.writeJson(response, 404, { error: 'Not found' });
+				return;
+			}
+
+			if (request.headers.origin !== undefined) {
+				this.writeJson(response, 403, {
+					error: 'Browser-originated MCP requests are not allowed.',
+				});
+				return;
+			}
+
+			if (!isJsonRequest(request)) {
+				this.writeJson(response, 415, {
+					error: 'Content-Type must be application/json.',
+				});
 				return;
 			}
 
@@ -265,10 +284,8 @@ export class VaultMcpServer {
 		}
 	}
 
-	private isAuthorized(request: IncomingMessage): boolean {
-		return (
-			this.token.length === 0 || request.headers.authorization === `Bearer ${this.token}`
-		);
+	private isAuthorized(request: http.IncomingMessage): boolean {
+		return request.headers.authorization === `Bearer ${this.token}`;
 	}
 
 	private rpcResult(
@@ -287,7 +304,7 @@ export class VaultMcpServer {
 	}
 
 	private writeJson(
-		response: ServerResponse,
+		response: http.ServerResponse,
 		status: number,
 		body: Record<string, unknown>,
 	): void {
@@ -295,12 +312,24 @@ export class VaultMcpServer {
 			response.end();
 			return;
 		}
-		response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+		response.writeHead(status, {
+			'Cache-Control': 'no-store',
+			'Content-Type': 'application/json; charset=utf-8',
+			'X-Content-Type-Options': 'nosniff',
+		});
 		response.end(JSON.stringify(body));
 	}
 }
 
-async function listen(server: Server, port: number): Promise<void> {
+function isJsonRequest(request: http.IncomingMessage): boolean {
+	const contentType = request.headers['content-type'];
+	return (
+		typeof contentType === 'string' &&
+		/^application\/json(?:\s*;|$)/i.test(contentType)
+	);
+}
+
+async function listen(server: http.Server, port: number): Promise<void> {
 	await new Promise<void>((resolve, reject) => {
 		const handleError = (error: Error): void => reject(error);
 		server.once('error', handleError);
@@ -311,7 +340,7 @@ async function listen(server: Server, port: number): Promise<void> {
 	});
 }
 
-async function readRequestBody(request: IncomingMessage): Promise<string> {
+async function readRequestBody(request: http.IncomingMessage): Promise<string> {
 	return new Promise<string>((resolve, reject) => {
 		const chunks: string[] = [];
 		let size = 0;
@@ -336,7 +365,7 @@ async function readRequestBody(request: IncomingMessage): Promise<string> {
 			chunks.push(text);
 		});
 		request.on('end', () => resolve(chunks.join('')));
-		request.on('error', reject);
+		request.on('error', (error: Error) => reject(error));
 	});
 }
 

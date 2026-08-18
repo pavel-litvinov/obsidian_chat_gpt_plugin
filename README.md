@@ -4,7 +4,7 @@
 
 Vault Toolkit Bridge is a desktop Obsidian plugin that exposes the current vault to local AI clients through the Model Context Protocol (MCP). It uses the standard Obsidian plugin API for note content, active-note state, metadata, tags, frontmatter, and atomic writes.
 
-The server listens on `127.0.0.1` only. It does not send vault data to an external service, collect telemetry, or require an Obsidian account.
+The server listens on `127.0.0.1` only. It does not send vault data to an external service, collect telemetry, or require an Obsidian account. Obsidian 1.13.0 or newer is required for the current release.
 
 ## MCP tools
 
@@ -57,7 +57,7 @@ http://127.0.0.1:8766/mcp
 
 Open **Settings → Vault Toolkit Bridge** to see the actual endpoint when several vaults are open.
 
-If a bearer token is configured, send it as:
+The plugin generates a unique bearer token for each vault. Copy it from **Settings → Vault Toolkit Bridge** and send it as:
 
 ```http
 Authorization: Bearer <token>
@@ -80,10 +80,13 @@ The production build writes `main.js` at the repository root. A release tag must
 
 - Desktop only: the plugin uses Node's local HTTP server.
 - The server binds only to `127.0.0.1`.
-- Optional bearer-token authentication is available in settings.
+- Browser-originated requests are rejected, and MCP requests must use `Content-Type: application/json`.
+- Every MCP request requires a randomly generated per-vault bearer token.
 - The plugin does not read from or write to the system clipboard.
-- No network requests, analytics, telemetry, ads, or paid services are included.
+- No outbound network requests, analytics, telemetry, ads, or paid services are included.
 - Write tools modify vault files and should be used with normal backups or version control.
+
+To report a vulnerability privately, follow [SECURITY.md](SECURITY.md).
 
 ## Vault access and privacy
 
