@@ -28,12 +28,4 @@ export default defineConfig(
 		},
 	},
 	...obsidianmd.configs.recommended,
-	{
-		files: ['src/settings.ts'],
-		rules: {
-			// display() is the fallback for 1.4.4–1.12.x; 1.13+ uses getSettingDefinitions().
-			'@typescript-eslint/no-deprecated': 'off',
-			'obsidianmd/settings-tab/prefer-setting-definitions': 'off',
-		},
-	},
 );

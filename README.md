@@ -4,7 +4,7 @@
 
 Vault Toolkit Bridge is a desktop Obsidian plugin that exposes the current vault to local AI clients through the Model Context Protocol (MCP). It uses the standard Obsidian plugin API for note content, active-note state, metadata, tags, frontmatter, and atomic writes.
 
-The server listens on `127.0.0.1` only. It does not send vault data to an external service, collect telemetry, or require an Obsidian account. Obsidian 1.5.0 or newer is required.
+The server listens on `127.0.0.1` only. It does not send vault data to an external service, collect telemetry, or require an Obsidian account. Obsidian 1.13.0 or newer is required.
 
 ## MCP tools
 
@@ -23,7 +23,7 @@ The server listens on `127.0.0.1` only. It does not send vault data to an extern
 - `patch_note` — replace one exact, unique text fragment.
 - `update_frontmatter` — set or remove a frontmatter property atomically.
 - `rename_note` — rename or move a note with `app.fileManager.renameFile`, allowing Obsidian to update wikilinks consistently.
-- `batch_write` — create or update up to 100 notes as one transaction. Paths are prevalidated; a failed write restores original contents, deletes newly created notes, and removes newly created empty folders.
+- `batch_write` — create or update up to 100 notes as one transaction. Paths are prevalidated; a failed write restores original contents and trashes newly created notes and empty folders according to the user's Obsidian preference.
 - `create_from_template` — instantiate a note from a template using `{{title}}`, `{{date}}`, `{{time}}`, optional date/time formats such as `{{date:YYYY-MM-DD}}`, and custom variables.
 - `query_dataview` — execute Dataview DQL through the enabled Dataview plugin API and return JSON-safe structured data.
 
