@@ -39,11 +39,13 @@ export const TOOL_DEFINITIONS: McpToolDefinition[] = [
 	{
 		name: 'search_notes',
 		description:
-			'Search notes by path or title, tags, and frontmatter. Filters combine with AND; tags match any supplied tag.',
+			'Search note paths and full Markdown content, with optional regex, tag, and frontmatter filters. Filters combine with AND; tags match any supplied tag.',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				query: { type: 'string', description: 'Case-insensitive path or title fragment.' },
+				query: { type: 'string', description: 'Path or full-content text fragment.' },
+				regex: { type: 'string', description: 'Regular expression applied to path and content.' },
+				case_sensitive: { type: 'boolean', default: false },
 				tag: { type: 'string', description: 'A single tag, with or without #.' },
 				tags: {
 					type: 'array',
@@ -57,6 +59,39 @@ export const TOOL_DEFINITIONS: McpToolDefinition[] = [
 				},
 				limit: { type: 'integer', minimum: 1, maximum: 200, default: 50 },
 			},
+		},
+		annotations: readOnly,
+	},
+	{
+		name: 'get_backlinks',
+		description: 'List Markdown notes containing resolved wikilinks to a note.',
+		inputSchema: {
+			type: 'object',
+			properties: { path: { type: 'string', description: 'Vault-relative note path.' } },
+			required: ['path'],
+		},
+		annotations: readOnly,
+	},
+	{
+		name: 'get_outgoing_links',
+		description: 'List Markdown notes reached by resolved wikilinks from a note.',
+		inputSchema: {
+			type: 'object',
+			properties: { path: { type: 'string', description: 'Vault-relative note path.' } },
+			required: ['path'],
+		},
+		annotations: readOnly,
+	},
+	{
+		name: 'get_graph_neighbors',
+		description: 'Traverse incoming and outgoing wikilinks up to a bounded depth.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				path: { type: 'string', description: 'Vault-relative note path.' },
+				depth: { type: 'integer', minimum: 1, maximum: 10, default: 1 },
+			},
+			required: ['path'],
 		},
 		annotations: readOnly,
 	},
@@ -163,5 +198,73 @@ export const TOOL_DEFINITIONS: McpToolDefinition[] = [
 			required: ['path', 'key'],
 		},
 		annotations: safeUpdate,
+	},
+	{
+		name: 'rename_note',
+		description: 'Rename or move a note through Obsidian and update wikilinks across the vault.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				old_path: { type: 'string', description: 'Existing vault-relative note path.' },
+				new_path: { type: 'string', description: 'New vault-relative note path.' },
+			},
+			required: ['old_path', 'new_path'],
+		},
+		annotations: safeUpdate,
+	},
+	{
+		name: 'batch_write',
+		description: 'Atomically create or update up to 100 notes. Any failure rolls back the entire batch.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				operations: {
+					type: 'array',
+					minItems: 1,
+					maxItems: 100,
+					items: {
+						type: 'object',
+						properties: {
+							type: { type: 'string', enum: ['create', 'update'] },
+							path: { type: 'string' },
+							content: { type: 'string' },
+							frontmatter: { type: 'object', additionalProperties: true },
+						},
+						required: ['type', 'path'],
+						additionalProperties: false,
+					},
+				},
+			},
+			required: ['operations'],
+		},
+		annotations: {
+			readOnlyHint: false,
+			destructiveHint: true,
+			idempotentHint: false,
+		},
+	},
+	{
+		name: 'create_from_template',
+		description: 'Create a note from an Obsidian template using title, date, time, and custom variables.',
+		inputSchema: {
+			type: 'object',
+			properties: {
+				template_path: { type: 'string' },
+				target_path: { type: 'string' },
+				variables: { type: 'object', additionalProperties: true, default: {} },
+			},
+			required: ['template_path', 'target_path'],
+		},
+		annotations: additiveWrite,
+	},
+	{
+		name: 'query_dataview',
+		description: 'Execute a Dataview DQL query and return its result as JSON.',
+		inputSchema: {
+			type: 'object',
+			properties: { dql_query: { type: 'string' } },
+			required: ['dql_query'],
+		},
+		annotations: readOnly,
 	},
 ];

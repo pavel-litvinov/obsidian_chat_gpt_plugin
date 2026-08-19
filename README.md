@@ -4,13 +4,16 @@
 
 Vault Toolkit Bridge is a desktop Obsidian plugin that exposes the current vault to local AI clients through the Model Context Protocol (MCP). It uses the standard Obsidian plugin API for note content, active-note state, metadata, tags, frontmatter, and atomic writes.
 
-The server listens on `127.0.0.1` only. It does not send vault data to an external service, collect telemetry, or require an Obsidian account. Obsidian 1.4.4 or newer is required.
+The server listens on `127.0.0.1` only. It does not send vault data to an external service, collect telemetry, or require an Obsidian account. Obsidian 1.5.0 or newer is required.
 
 ## MCP tools
 
 - `read_note` — read a note and its metadata.
 - `read_active_note` — read the note active in this Obsidian window.
-- `search_notes` — filter by path/title, tag, multiple tags, and frontmatter.
+- `search_notes` — search paths and full note content by text or regex, with tag and exact frontmatter filters. Results include match locations and a content excerpt.
+- `get_backlinks` — list resolved Markdown notes that link to a note.
+- `get_outgoing_links` — list resolved Markdown notes linked from a note.
+- `get_graph_neighbors` — traverse incoming and outgoing links up to 10 levels and return nodes, distances, and directed edges.
 - `list_notes` — list Markdown notes in the vault.
 - `get_note_metadata` — return timestamps, tags, and frontmatter.
 - `get_vault_metadata` — summarize notes, folders, and tag usage.
@@ -19,6 +22,52 @@ The server listens on `127.0.0.1` only. It does not send vault data to an extern
 - `append_to_note` — append Markdown content.
 - `patch_note` — replace one exact, unique text fragment.
 - `update_frontmatter` — set or remove a frontmatter property atomically.
+- `rename_note` — rename or move a note with `app.fileManager.renameFile`, allowing Obsidian to update wikilinks consistently.
+- `batch_write` — create or update up to 100 notes as one transaction. Paths are prevalidated; a failed write restores original contents, deletes newly created notes, and removes newly created empty folders.
+- `create_from_template` — instantiate a note from a template using `{{title}}`, `{{date}}`, `{{time}}`, optional date/time formats such as `{{date:YYYY-MM-DD}}`, and custom variables.
+- `query_dataview` — execute Dataview DQL through the enabled Dataview plugin API and return JSON-safe structured data.
+
+All failed tool calls return `isError: true` and a `structuredContent.error` object with a stable `code` and human-readable `message`. Dataview absence is reported as `DATAVIEW_NOT_INSTALLED`; it does not stop the MCP server.
+
+### Tool argument examples
+
+```json
+{
+  "name": "search_notes",
+  "arguments": {
+    "query": "design package",
+    "regex": "status:\\s+(draft|review)",
+    "frontmatter": { "project": "vault-toolkit" },
+    "case_sensitive": false,
+    "limit": 50
+  }
+}
+```
+
+```json
+{
+  "name": "batch_write",
+  "arguments": {
+    "operations": [
+      { "type": "create", "path": "Design/Package.md", "content": "# Package" },
+      { "type": "update", "path": "Design/Index.md", "content": "# Index\n\n[[Package]]" }
+    ]
+  }
+}
+```
+
+`batch_write` supports optional `frontmatter` on both operation types. An update must provide `content`, `frontmatter`, or both. Duplicate paths in one batch are rejected before any write begins.
+
+```json
+{
+  "name": "create_from_template",
+  "arguments": {
+    "template_path": "Templates/Project.md",
+    "target_path": "Projects/Vault Toolkit.md",
+    "variables": { "owner": "researcher", "status": "draft" }
+  }
+}
+```
 
 The Obsidian command palette also includes controls for starting, stopping, and restarting the MCP server and using the note operations manually.
 
