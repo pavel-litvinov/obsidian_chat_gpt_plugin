@@ -1,6 +1,11 @@
 import * as http from 'http';
 import { App } from 'obsidian';
-import { SearchNotesOptions, VaultToolkitApi } from './api';
+import {
+	BatchWriteOperation,
+	SearchNotesOptions,
+	VaultToolkitApi,
+	VaultToolkitError,
+} from './api';
 import type { VaultToolkitSettings } from './settings';
 import { TOOL_DEFINITIONS } from './tool-definitions';
 
@@ -181,8 +186,10 @@ export class VaultMcpServer {
 				isError: false,
 			});
 		} catch (error) {
+			const structuredError = toolError(error);
 			return this.rpcResult(id, {
-				content: [{ type: 'text', text: errorMessage(error) }],
+				content: [{ type: 'text', text: JSON.stringify({ error: structuredError }, null, 2) }],
+				structuredContent: { error: structuredError },
 				isError: true,
 			});
 		}
@@ -212,17 +219,35 @@ export class VaultMcpServer {
 			case 'search_notes': {
 				const options: SearchNotesOptions = {
 					query: optionalString(args, 'query'),
+					regex: optionalString(args, 'regex'),
+					caseSensitive: optionalBoolean(args, 'case_sensitive'),
 					tag: optionalString(args, 'tag'),
 					tags: optionalStringArray(args, 'tags'),
 					frontmatter: optionalRecord(args, 'frontmatter'),
 					limit: optionalInteger(args, 'limit'),
 				};
+				const matches = await this.api.searchNotesFullText(options);
 				return {
-					notes: this.api.searchNotes(options).map((file) =>
-						this.api.getNoteMetadata(file),
-					),
+					notes: matches.map((match) => ({
+						...match.metadata,
+						matchedIn: match.matchedIn,
+						...(match.excerpt === undefined ? {} : { excerpt: match.excerpt }),
+					})),
 				};
 			}
+			case 'get_backlinks': {
+				const path = requireString(args, 'path');
+				return { path, backlinks: this.api.getBacklinks(path) };
+			}
+			case 'get_outgoing_links': {
+				const path = requireString(args, 'path');
+				return { path, outgoingLinks: this.api.getOutgoingLinks(path) };
+			}
+			case 'get_graph_neighbors':
+				return this.api.getGraphNeighbors(
+					requireString(args, 'path'),
+					optionalInteger(args, 'depth') ?? 1,
+				);
 			case 'list_notes':
 				return { notes: this.api.listNotes(optionalInteger(args, 'limit')) };
 			case 'get_note_metadata':
@@ -279,6 +304,27 @@ export class VaultMcpServer {
 				}
 				return { path, key, removed: args.remove === true };
 			}
+			case 'rename_note': {
+				const oldPath = requireString(args, 'old_path');
+				const file = await this.api.renameNote(oldPath, requireString(args, 'new_path'));
+				return { oldPath, newPath: file.path };
+			}
+			case 'batch_write': {
+				const operations = requireArray(args, 'operations').map((value, index) =>
+					parseBatchOperation(value, index),
+				);
+				return { paths: await this.api.batchWrite(operations), operationCount: operations.length };
+			}
+			case 'create_from_template': {
+				const file = await this.api.createFromTemplate(
+					requireString(args, 'template_path'),
+					requireString(args, 'target_path'),
+					optionalRecord(args, 'variables') ?? {},
+				);
+				return { path: file.path };
+			}
+			case 'query_dataview':
+				return { ...(await this.api.queryDataview(requireString(args, 'dql_query'))) };
 			default:
 				throw new Error(`Unknown tool: ${name}`);
 		}
@@ -453,6 +499,36 @@ function optionalInteger(
 	return candidate as number;
 }
 
+function optionalBoolean(
+	value: Record<string, unknown>,
+	key: string,
+): boolean | undefined {
+	const candidate = value[key];
+	if (candidate === undefined) return undefined;
+	if (typeof candidate !== 'boolean') throw new Error(`${key} must be a boolean.`);
+	return candidate;
+}
+
+function requireArray(value: Record<string, unknown>, key: string): unknown[] {
+	const candidate = value[key];
+	if (!Array.isArray(candidate)) throw new Error(`${key} must be an array.`);
+	return candidate;
+}
+
+function parseBatchOperation(value: unknown, index: number): BatchWriteOperation {
+	const operation = requireRecordValue(value, `operations[${index}]`);
+	const type = requireString(operation, 'type');
+	if (type !== 'create' && type !== 'update') {
+		throw new Error(`operations[${index}].type must be create or update.`);
+	}
+	return {
+		type,
+		path: requireString(operation, 'path'),
+		content: optionalString(operation, 'content'),
+		frontmatter: optionalRecord(operation, 'frontmatter'),
+	};
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -463,4 +539,15 @@ function isAddressInUse(error: unknown): boolean {
 
 function errorMessage(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
+}
+
+function toolError(error: unknown): Record<string, unknown> {
+	if (error instanceof VaultToolkitError) {
+		return {
+			code: error.code,
+			message: error.message,
+			...(error.details === undefined ? {} : { details: error.details }),
+		};
+	}
+	return { code: 'TOOL_ERROR', message: errorMessage(error) };
 }
