@@ -3,7 +3,6 @@ import {
 	CachedMetadata,
 	EventRef,
 	getAllTags,
-	moment,
 	normalizePath,
 	TAbstractFile,
 	TFile,
@@ -391,8 +390,7 @@ export class VaultToolkitApi {
 			for (const path of [...createdFiles].reverse()) {
 				try {
 					const file = this.app.vault.getAbstractFileByPath(path);
-					// Rollback must remove the transient file, not move it into the user's trash.
-					if (file !== null) await this.app.vault.delete(file, true);
+					if (file !== null) await this.app.fileManager.trashFile(file);
 				} catch (rollbackError) {
 					rollbackErrors.push(`${path}: ${errorMessage(rollbackError)}`);
 				}
@@ -416,14 +414,14 @@ export class VaultToolkitApi {
 		const template = await this.readNote(templatePath);
 		const target = normalizeNotePath(targetPath);
 		const title = target.split('/').at(-1)?.replace(/\.md$/i, '') ?? target;
-		const now = moment();
+		const now = new Date();
 		const standard: Record<string, unknown> = {
 			title,
-			date: now.format('YYYY-MM-DD'),
-			time: now.format('HH:mm'),
+			date: formatTemplateDate(now, 'YYYY-MM-DD'),
+			time: formatTemplateDate(now, 'HH:mm'),
 		};
 		let content = template.replace(/\{\{\s*(date|time):([^}]+)\}\}/gu, (_match, _kind: string, format: string) =>
-			now.format(format.trim()),
+			formatTemplateDate(now, format.trim()),
 		);
 		for (const [key, value] of Object.entries({ ...standard, ...variables })) {
 			const placeholder = new RegExp(`\\{\\{\\s*${escapeRegExp(key)}\\s*\\}\\}`, 'gu');
@@ -615,8 +613,7 @@ export class VaultToolkitApi {
 			const folder = this.app.vault.getAbstractFileByPath(path);
 			if (!(folder instanceof TFolder) || folder.children.length > 0) continue;
 			try {
-				// Rollback must remove only the transient empty folder, not trash it.
-				await this.app.vault.delete(folder, true);
+				await this.app.fileManager.trashFile(folder);
 			} catch (error) {
 				errors.push(`${path}: ${errorMessage(error)}`);
 			}
@@ -727,6 +724,24 @@ function excerptAround(content: string, index: number): string {
 
 function escapeRegExp(value: string): string {
 	return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+
+function formatTemplateDate(date: Date, format: string): string {
+	const values: Record<string, string> = {
+		YYYY: String(date.getFullYear()),
+		YY: String(date.getFullYear()).slice(-2),
+		MM: String(date.getMonth() + 1).padStart(2, '0'),
+		M: String(date.getMonth() + 1),
+		DD: String(date.getDate()).padStart(2, '0'),
+		D: String(date.getDate()),
+		HH: String(date.getHours()).padStart(2, '0'),
+		H: String(date.getHours()),
+		mm: String(date.getMinutes()).padStart(2, '0'),
+		m: String(date.getMinutes()),
+		ss: String(date.getSeconds()).padStart(2, '0'),
+		s: String(date.getSeconds()),
+	};
+	return format.replace(/YYYY|YY|MM|DD|HH|mm|ss|M|D|H|m|s/gu, (token) => values[token] ?? token);
 }
 
 function stringifyTemplateValue(value: unknown): string {
